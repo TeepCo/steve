@@ -1,7 +1,6 @@
 ![SteVe](src/main/resources/webapp/static/images/logo.png) 
 
 [![Build Status](https://travis-ci.org/RWTH-i5-IDSG/steve.svg)](https://travis-ci.org/RWTH-i5-IDSG/steve)
-[![Coverity Status](https://scan.coverity.com/projects/6601/badge.svg)](https://scan.coverity.com/projects/rwth-i5-idsg-steve)
 
 
 # Introduction
@@ -29,7 +28,7 @@ https://github.com/RWTH-i5-IDSG/steve/wiki/Charging-Station-Compatibility
 SteVe requires 
 * JDK 11 (both Oracle JDK and OpenJDK are supported)
 * Maven 
-* At least MySQL 5.6.4 (MariaDB 10.0 or later works as well) as database
+* At least PostgreSQL 11 as database
 
 to build and run. 
 
@@ -39,13 +38,12 @@ SteVe is designed to run standalone, a java servlet container / web server (e.g.
 
 1. Database preparation:
 
-    Make sure MySQL is reachable via TCP (e.g., remove `skip-networking` from `my.cnf`).
-    The following MySQL statements can be used as database initialization (adjust database name and credentials according to your setup):
+    Make sure PostgreSQL is reachable via TCP (e.g., remove `skip-networking` from `my.cnf`).
+    The following PostgreSQL statements can be used as database initialization (adjust database name and credentials according to your setup):
 
     ```
-    CREATE DATABASE stevedb CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-    GRANT ALL PRIVILEGES ON stevedb.* TO 'steve'@'localhost' IDENTIFIED BY 'changeme';
-    GRANT SELECT ON mysql.proc TO 'steve'@'localhost' IDENTIFIED BY 'changeme';
+    CREATE ROLE steve LOGIN ENCRYPTED PASSWORD 'changeme';
+    CREATE DATABASE stevedb OWNER steve ENCODING 'utf-8';
     ```
     
     **Important**: Make sure that the time zone of the MySQL server is the same as [the time zone of SteVe](src/main/java/de/rwth/idsg/steve/SteveConfiguration.java#L28). Since `UTC` is strongly recommended by OCPP, it is the default in SteVe and you should set it in MySQL, accordingly.

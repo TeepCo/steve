@@ -39,6 +39,7 @@ public enum SteveConfiguration {
     private final Auth auth;
     private final DB db;
     private final Jetty jetty;
+    private final Api api;
 
     SteveConfiguration() {
         PropertiesFileLoader p = new PropertiesFileLoader("main.properties");
@@ -81,6 +82,11 @@ public enum SteveConfiguration {
                    .wsSessionSelectStrategy(
                            WsSessionSelectStrategyEnum.fromName(p.getString("ws.session.select.strategy")))
                    .build();
+
+        api = Api.builder()
+                .userName(p.getString("api.user"))
+                .encodedPassword(encoder.encode(p.getString("api.password")))
+                .build();
 
         validate();
     }
@@ -171,4 +177,9 @@ public enum SteveConfiguration {
         private final WsSessionSelectStrategy wsSessionSelectStrategy;
     }
 
+    @Builder @Getter
+    public static class Api {
+        private final String userName;
+        private final String encodedPassword;
+    }
 }

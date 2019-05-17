@@ -37,6 +37,12 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
             .withUser(CONFIG.getAuth().getUserName())
             .password(CONFIG.getAuth().getEncodedPassword())
             .roles("ADMIN");
+
+        auth.inMemoryAuthentication()
+            .passwordEncoder(CONFIG.getAuth().getPasswordEncoder())
+            .withUser(CONFIG.getApi().getUserName())
+            .password(CONFIG.getApi().getEncodedPassword())
+            .roles("API");
     }
 
     @Override
@@ -52,6 +58,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
         http
             .authorizeRequests()
                 .antMatchers(prefix + "**").hasRole("ADMIN")
+                .antMatchers("/api/**").hasRole("API")
                 .and()
             .sessionManagement()
                 .invalidSessionUrl(prefix + "signin")

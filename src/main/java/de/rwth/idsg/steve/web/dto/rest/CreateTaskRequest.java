@@ -19,7 +19,10 @@ public class CreateTaskRequest {
 
     private ChangeAvailabilityRequest changeAvailability;
 
+    private TriggerMessageRequest triggerMessage;
+
     public enum TaskType {
-        CHANGE_AVAILABILITY
+        CHANGE_AVAILABILITY,
+        TRIGGER_MESSAGE
     }
 }

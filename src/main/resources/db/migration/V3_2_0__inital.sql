@@ -268,7 +268,7 @@ CREATE TABLE stevedb.ocpp_tag (
                                   id_tag character varying(255) NOT NULL,
                                   parent_id_tag character varying(255),
                                   expiry_date timestamp,
-                                  in_transaction boolean NOT NULL,
+                                  in_transaction boolean NOT NULL DEFAULT FALSE,
                                   blocked boolean NOT NULL,
                                   note text
 );

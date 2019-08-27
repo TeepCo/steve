@@ -7,9 +7,11 @@ import de.rwth.idsg.steve.repository.dto.ChargePointSelect;
 import de.rwth.idsg.steve.service.ChargePointService16_Client;
 import de.rwth.idsg.steve.web.dto.ocpp.ChangeAvailabilityParams;
 import de.rwth.idsg.steve.web.dto.ocpp.MultipleChargePointSelect;
+import de.rwth.idsg.steve.web.dto.ocpp.TriggerMessageParams;
 import de.rwth.idsg.steve.web.dto.rest.ChangeAvailabilityRequest;
 import de.rwth.idsg.steve.web.dto.rest.CreateTaskRequest;
 import de.rwth.idsg.steve.web.dto.rest.TaskDetail;
+import de.rwth.idsg.steve.web.dto.rest.TriggerMessageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static de.rwth.idsg.steve.web.dto.rest.CreateTaskRequest.TaskType.CHANGE_AVAILABILITY;
+import static de.rwth.idsg.steve.web.dto.rest.CreateTaskRequest.TaskType.TRIGGER_MESSAGE;
 
 
 @RestController
@@ -38,6 +41,7 @@ public class TaskRestController {
     private Map<CreateTaskRequest.TaskType, Function<CreateTaskRequest, Integer>> taskProcessors = new HashMap<>();
     {
         taskProcessors.put(CHANGE_AVAILABILITY, this::changeAvailability);
+        taskProcessors.put(TRIGGER_MESSAGE, this::triggerMessage);
     }
 
     @PostMapping
@@ -82,5 +86,18 @@ public class TaskRestController {
         fillChargePoint(request, params);
 
         return client16.changeAvailability(params);
+    }
+
+    private Integer triggerMessage(CreateTaskRequest request) {
+        final TriggerMessageRequest triggerMessage = request.getTriggerMessage();
+        final TriggerMessageParams params = new TriggerMessageParams();
+
+        Assert.notNull(triggerMessage, "Required parameter triggerMessage missing.");
+
+        params.setConnectorId(request.getConnectorId());
+        params.setTriggerMessage(triggerMessage.getTriggerMessage());
+        fillChargePoint(request, params);
+
+        return client16.triggerMessage(params);
     }
 }

@@ -1,3 +1,21 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.utils;
 
 import com.google.common.collect.Sets;
@@ -16,9 +34,10 @@ import de.rwth.idsg.steve.repository.impl.TransactionRepositoryImpl;
 import de.rwth.idsg.steve.web.dto.ReservationQueryForm;
 import de.rwth.idsg.steve.web.dto.TransactionQueryForm;
 import jooq.steve.db.DefaultCatalog;
+import jooq.steve.db.tables.OcppTagActivity;
 import jooq.steve.db.tables.SchemaVersion;
 import jooq.steve.db.tables.Settings;
-import jooq.steve.db.tables.records.OcppTagRecord;
+import jooq.steve.db.tables.records.OcppTagActivityRecord;
 import jooq.steve.db.tables.records.TransactionRecord;
 import org.joda.time.DateTime;
 import org.jooq.DSLContext;
@@ -49,6 +68,7 @@ public class __DatabasePreparer__ {
 
     private static final String SCHEMA_TO_TRUNCATE = "stevedb_test_2aa6a783d47d";
     private static final String REGISTERED_CHARGE_BOX_ID = "charge_box_2aa6a783d47d";
+    private static final String REGISTERED_CHARGE_BOX_ID_2 = "charge_box_2aa6a783d47d_2";
     private static final String REGISTERED_OCPP_TAG = "id_tag_2aa6a783d47d";
 
     private static final BeanConfiguration beanConfiguration = new BeanConfiguration();
@@ -83,6 +103,10 @@ public class __DatabasePreparer__ {
         return REGISTERED_CHARGE_BOX_ID;
     }
 
+    public static String getRegisteredChargeBoxId2() {
+        return REGISTERED_CHARGE_BOX_ID_2;
+    }
+
     public static String getRegisteredOcppTag() {
         return REGISTERED_OCPP_TAG;
     }
@@ -110,7 +134,7 @@ public class __DatabasePreparer__ {
         return impl.getDetails(transactionPk);
     }
 
-    public static OcppTagRecord getOcppTagRecord(String idTag) {
+    public static OcppTagActivityRecord getOcppTagRecord(String idTag) {
         OcppTagRepositoryImpl impl = new OcppTagRepositoryImpl(dslContext);
         return impl.getRecord(idTag);
     }
@@ -127,7 +151,13 @@ public class __DatabasePreparer__ {
     }
 
     private static void truncateTables(DSLContext ctx) {
-        Set<Table<?>> skipList = Sets.newHashSet(SchemaVersion.SCHEMA_VERSION, Settings.SETTINGS);
+        Set<Table<?>> skipList = Sets.newHashSet(
+                SchemaVersion.SCHEMA_VERSION,
+                Settings.SETTINGS,
+                OcppTagActivity.OCPP_TAG_ACTIVITY, // only a view
+                TRANSACTION // only a view
+        );
+
         ctx.transaction(configuration -> {
             Schema schema = DefaultCatalog.DEFAULT_CATALOG.getSchemas()
                                                           .stream()
@@ -155,13 +185,15 @@ public class __DatabasePreparer__ {
         ctx.insertInto(CHARGE_BOX)
            .set(CHARGE_BOX.CHARGE_BOX_ID, getRegisteredChargeBoxId())
            .execute();
+
+        ctx.insertInto(CHARGE_BOX)
+           .set(CHARGE_BOX.CHARGE_BOX_ID, getRegisteredChargeBoxId2())
+           .execute();
     }
 
     private static void insertOcppIdTag(DSLContext ctx) {
         ctx.insertInto(OCPP_TAG)
            .set(OCPP_TAG.ID_TAG, getRegisteredOcppTag())
-           .set(OCPP_TAG.BLOCKED, false)
-           .set(OCPP_TAG.IN_TRANSACTION, false)
            .execute();
     }
 }

@@ -1,3 +1,21 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.ocpp.converter;
 
 import ocpp.cs._2010._08.AuthorizationStatus;
@@ -63,12 +81,10 @@ public enum Server12to15Impl implements Server12to15 {
 
     @Override
     public StatusNotificationRequest convertRequest(ocpp.cs._2010._08.StatusNotificationRequest request) {
-        ChargePointStatus status = ChargePointStatus.fromValue(request.getStatus().value());
-        ChargePointErrorCode errorCode = ChargePointErrorCode.fromValue(request.getErrorCode().value());
         return new StatusNotificationRequest()
                 .withConnectorId(request.getConnectorId())
-                .withStatus(status)
-                .withErrorCode(errorCode);
+                .withStatus(ChargePointStatus.fromValue(request.getStatus().value()))
+                .withErrorCode(ChargePointErrorCode.fromValue(request.getErrorCode().value()));
     }
 
     @Override
@@ -87,9 +103,8 @@ public enum Server12to15Impl implements Server12to15 {
 
     @Override
     public DiagnosticsStatusNotificationRequest convertRequest(ocpp.cs._2010._08.DiagnosticsStatusNotificationRequest request) {
-        DiagnosticsStatus status = DiagnosticsStatus.fromValue(request.getStatus().value());
         return new DiagnosticsStatusNotificationRequest()
-                .withStatus(status);
+                .withStatus(DiagnosticsStatus.fromValue(request.getStatus().value()));
     }
 
     @Override

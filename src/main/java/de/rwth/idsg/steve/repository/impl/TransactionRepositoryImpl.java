@@ -1,3 +1,21 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.repository.impl;
 
 import de.rwth.idsg.steve.SteveException;
@@ -6,12 +24,14 @@ import de.rwth.idsg.steve.repository.dto.Transaction;
 import de.rwth.idsg.steve.repository.dto.TransactionDetails;
 import de.rwth.idsg.steve.utils.DateTimeUtils;
 import de.rwth.idsg.steve.web.dto.TransactionQueryForm;
+import jooq.steve.db.enums.TransactionStopEventActor;
 import jooq.steve.db.tables.records.ConnectorMeterValueRecord;
+import jooq.steve.db.tables.records.TransactionStartRecord;
 import org.joda.time.DateTime;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
-import org.jooq.Record11;
+import org.jooq.Record12;
 import org.jooq.Record9;
 import org.jooq.RecordMapper;
 import org.jooq.SelectQuery;
@@ -29,6 +49,7 @@ import static jooq.steve.db.tables.Connector.CONNECTOR;
 import static jooq.steve.db.tables.ConnectorMeterValue.CONNECTOR_METER_VALUE;
 import static jooq.steve.db.tables.OcppTag.OCPP_TAG;
 import static jooq.steve.db.tables.Transaction.TRANSACTION;
+import static jooq.steve.db.tables.TransactionStart.TRANSACTION_START;
 
 /**
  * @author Sevket Goekay <goekay@dbis.rwth-aachen.de>
@@ -70,7 +91,7 @@ public class TransactionRepositoryImpl implements TransactionRepository {
     }
 
     @Override
-    public TransactionDetails getDetails(int transactionPk) {
+    public TransactionDetails getDetails(int transactionPk, boolean firstArrivingMeterValueIfMultiple) {
 
         // -------------------------------------------------------------------------
         // Step 1: Collect general data about transaction
@@ -81,7 +102,7 @@ public class TransactionRepositoryImpl implements TransactionRepository {
         form.setType(TransactionQueryForm.QueryType.ALL);
         form.setPeriodType(TransactionQueryForm.QueryPeriodType.ALL);
 
-        Record11<Integer, String, Integer, String, DateTime, String, DateTime, String, String, Integer, Integer>
+        Record12<Integer, String, Integer, String, DateTime, String, DateTime, String, String, Integer, Integer, TransactionStopEventActor>
                 transaction = getInternal(form).fetchOne();
 
         if (transaction == null) {
@@ -99,9 +120,33 @@ public class TransactionRepositoryImpl implements TransactionRepository {
         // -------------------------------------------------------------------------
 
         Condition timestampCondition;
+        TransactionStartRecord nextTx = null;
+
         if (stopTimestamp == null && stopValue == null) {
-            // active transaction
-            timestampCondition = CONNECTOR_METER_VALUE.VALUE_TIMESTAMP.greaterOrEqual(startTimestamp);
+
+            // https://github.com/RWTH-i5-IDSG/steve/issues/97
+            //
+            // handle "zombie" transaction, for which we did not receive any StopTransaction. if we do not handle it,
+            // meter values for all subsequent transactions at this chargebox and connector will be falsely attributed
+            // to this zombie transaction.
+            //
+            // "what is the subsequent transaction at the same chargebox and connector?"
+            nextTx = ctx.selectFrom(TRANSACTION_START)
+                        .where(TRANSACTION_START.CONNECTOR_PK.eq(ctx.select(CONNECTOR.CONNECTOR_PK)
+                                                                    .from(CONNECTOR)
+                                                                    .where(CONNECTOR.CHARGE_BOX_ID.equal(chargeBoxId))
+                                                                    .and(CONNECTOR.CONNECTOR_ID.equal(connectorId))))
+                        .and(TRANSACTION_START.START_TIMESTAMP.greaterThan(startTimestamp))
+                        .orderBy(TRANSACTION_START.START_TIMESTAMP)
+                        .limit(1)
+                        .fetchOne();
+
+            if (nextTx == null) {
+                // the last active transaction
+                timestampCondition = CONNECTOR_METER_VALUE.VALUE_TIMESTAMP.greaterOrEqual(startTimestamp);
+            } else {
+                timestampCondition = CONNECTOR_METER_VALUE.VALUE_TIMESTAMP.between(startTimestamp, nextTx.getStartTimestamp());
+            }
         } else {
             // finished transaction
             timestampCondition = CONNECTOR_METER_VALUE.VALUE_TIMESTAMP.between(startTimestamp, stopTimestamp);
@@ -138,10 +183,15 @@ public class TransactionRepositoryImpl implements TransactionRepository {
         // every 15 min) regardless of the fact that connector's meter value did not
         // change (e.g. vehicle is fully charged, but cable is still connected). This
         // yields multiple entries in db with the same value but different timestamp.
-        // We are only interested in the first arriving entry.
+        // We are only interested in the first (or last) arriving entry.
         // -------------------------------------------------------------------------
 
-        Field<DateTime> dateTimeField = DSL.min(t1.field(2, DateTime.class)).as("min");
+        Field<DateTime> dateTimeField;
+        if (firstArrivingMeterValueIfMultiple) {
+            dateTimeField = DSL.min(t1.field(2, DateTime.class)).as("min");
+        } else {
+            dateTimeField = DSL.max(t1.field(2, DateTime.class)).as("max");
+        }
 
         List<TransactionDetails.MeterValues> values =
                 ctx.select(
@@ -175,22 +225,7 @@ public class TransactionRepositoryImpl implements TransactionRepository {
                                                            .phase(r.value8())
                                                            .build());
 
-        return new TransactionDetails(new TransactionMapper().map(transaction), values);
-    }
-
-    /**
-     * See documentation of {@link TransactionRepository#getChargeBoxIdsOfActiveTransactions(String)}
-     */
-    @Override
-    public List<String> getChargeBoxIdsOfActiveTransactions(String ocppIdTag) {
-        return ctx.select(CONNECTOR.CHARGE_BOX_ID)
-                  .from(CONNECTOR)
-                  .join(TRANSACTION)
-                    .on(TRANSACTION.CONNECTOR_PK.equal(CONNECTOR.CONNECTOR_PK))
-                  .where(TRANSACTION.ID_TAG.eq(ocppIdTag))
-                    .and(TRANSACTION.STOP_VALUE.isNull())
-                    .and(TRANSACTION.STOP_TIMESTAMP.isNull())
-                  .fetch(CONNECTOR.CHARGE_BOX_ID);
+        return new TransactionDetails(new TransactionMapper().map(transaction), values, nextTx);
     }
 
     // -------------------------------------------------------------------------
@@ -226,7 +261,7 @@ public class TransactionRepositoryImpl implements TransactionRepository {
      */
     @SuppressWarnings("unchecked")
     private
-    SelectQuery<Record11<Integer, String, Integer, String, DateTime, String, DateTime, String, String, Integer, Integer>>
+    SelectQuery<Record12<Integer, String, Integer, String, DateTime, String, DateTime, String, String, Integer, Integer, TransactionStopEventActor>>
     getInternal(TransactionQueryForm form) {
 
         SelectQuery selectQuery = ctx.selectQuery();
@@ -245,7 +280,8 @@ public class TransactionRepositoryImpl implements TransactionRepository {
                 TRANSACTION.STOP_VALUE,
                 TRANSACTION.STOP_REASON,
                 CHARGE_BOX.CHARGE_BOX_PK,
-                OCPP_TAG.OCPP_TAG_PK
+                OCPP_TAG.OCPP_TAG_PK,
+                TRANSACTION.STOP_EVENT_ACTOR
         );
 
         return addConditions(selectQuery, form);
@@ -311,12 +347,9 @@ public class TransactionRepositoryImpl implements TransactionRepository {
         }
     }
 
-    private static class TransactionMapper
-            implements RecordMapper<Record11<Integer, String, Integer, String, DateTime, String, DateTime,
-                                             String, String, Integer, Integer>, Transaction> {
+    private static class TransactionMapper implements RecordMapper<Record12<Integer, String, Integer, String, DateTime, String, DateTime, String, String, Integer, Integer, TransactionStopEventActor>, Transaction> {
         @Override
-        public Transaction map(Record11<Integer, String, Integer, String, DateTime, String, DateTime,
-                                        String, String, Integer, Integer> r) {
+        public Transaction map(Record12<Integer, String, Integer, String, DateTime, String, DateTime, String, String, Integer, Integer, TransactionStopEventActor> r) {
             return Transaction.builder()
                               .id(r.value1())
                               .chargeBoxId(r.value2())
@@ -331,6 +364,7 @@ public class TransactionRepositoryImpl implements TransactionRepository {
                               .stopReason(r.value9())
                               .chargeBoxPk(r.value10())
                               .ocppTagPk(r.value11())
+                              .stopEventActor(r.value12())
                               .build();
         }
     }

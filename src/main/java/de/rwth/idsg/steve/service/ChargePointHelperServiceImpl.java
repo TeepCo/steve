@@ -1,3 +1,21 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.service;
 
 import com.google.common.util.concurrent.Striped;
@@ -19,6 +37,7 @@ import de.rwth.idsg.steve.utils.DateTimeUtils;
 import de.rwth.idsg.steve.web.dto.OcppJsonStatus;
 import de.rwth.idsg.steve.web.dto.Statistics;
 import lombok.extern.slf4j.Slf4j;
+import ocpp.cs._2015._10.RegistrationStatus;
 import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,6 +49,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Collectors;
 
@@ -59,15 +79,15 @@ public class ChargePointHelperServiceImpl implements ChargePointHelperService {
     private final UnidentifiedIncomingObjectService unknownChargePointService = new UnidentifiedIncomingObjectService(100);
 
     @Override
-    public boolean isRegistered(String chargeBoxId) {
+    public Optional<RegistrationStatus> getRegistrationStatus(String chargeBoxId) {
         Lock l = isRegisteredLocks.get(chargeBoxId);
         l.lock();
         try {
-            boolean isRegistered = isRegisteredInternal(chargeBoxId);
-            if (!isRegistered) {
+            Optional<RegistrationStatus> status = getRegistrationStatusInternal(chargeBoxId);
+            if (status.isEmpty()) {
                 unknownChargePointService.processNewUnidentified(chargeBoxId);
             }
-            return isRegistered;
+            return status;
         } finally {
             l.unlock();
         }
@@ -105,18 +125,17 @@ public class ChargePointHelperServiceImpl implements ChargePointHelperService {
     }
 
     @Override
-    public List<ChargePointSelect> getChargePointsV12() {
-        return getChargePoints(OcppProtocol.V_12_SOAP, ocpp12WebSocketEndpoint);
-    }
-
-    @Override
-    public List<ChargePointSelect> getChargePointsV15() {
-        return getChargePoints(OcppProtocol.V_15_SOAP, ocpp15WebSocketEndpoint);
-    }
-
-    @Override
-    public List<ChargePointSelect> getChargePointsV16() {
-        return getChargePoints(OcppProtocol.V_16_SOAP, ocpp16WebSocketEndpoint);
+    public List<ChargePointSelect> getChargePoints(OcppVersion version, List<RegistrationStatus> inStatusFilter) {
+        switch (version) {
+            case V_12:
+                return getChargePoints(OcppProtocol.V_12_SOAP, inStatusFilter, ocpp12WebSocketEndpoint);
+            case V_15:
+                return getChargePoints(OcppProtocol.V_15_SOAP, inStatusFilter, ocpp15WebSocketEndpoint);
+            case V_16:
+                return getChargePoints(OcppProtocol.V_16_SOAP, inStatusFilter, ocpp16WebSocketEndpoint);
+            default:
+                throw new IllegalArgumentException("Unknown OCPP version: " + version);
+        }
     }
 
     @Override
@@ -138,30 +157,42 @@ public class ChargePointHelperServiceImpl implements ChargePointHelperService {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private boolean isRegisteredInternal(String chargeBoxId) {
+    private Optional<RegistrationStatus> getRegistrationStatusInternal(String chargeBoxId) {
         // 1. exit if already registered
-        if (chargePointRepository.isRegistered(chargeBoxId)) {
-            return true;
+        Optional<String> status = chargePointRepository.getRegistrationStatus(chargeBoxId);
+        if (status.isPresent()) {
+            try {
+                return Optional.ofNullable(RegistrationStatus.fromValue(status.get()));
+            } catch (Exception e) {
+                // in cases where the database entry (string) is altered, and therefore cannot be converted to enum
+                log.error("Exception happened", e);
+                return Optional.empty();
+            }
         }
 
         // 2. ok, this chargeBoxId is unknown. exit if auto-register is disabled
         if (!autoRegisterUnknownStations) {
-            return false;
+            return Optional.empty();
         }
 
         // 3. chargeBoxId is unknown and auto-register is enabled. insert chargeBoxId
         try {
             chargePointRepository.addChargePointList(Collections.singletonList(chargeBoxId));
             log.warn("Auto-registered unknown chargebox '{}'", chargeBoxId);
-            return true;
+            return Optional.of(RegistrationStatus.ACCEPTED); // default db value is accepted
         } catch (Exception e) {
             log.error("Failed to auto-register unknown chargebox '" + chargeBoxId + "'", e);
-            return false;
+            return Optional.empty();
         }
     }
 
-    private List<ChargePointSelect> getChargePoints(OcppProtocol forSoap, AbstractWebSocketEndpoint jsonEndpoint) {
-        List<ChargePointSelect> returnList = chargePointRepository.getChargePointSelect(forSoap);
+    private List<ChargePointSelect> getChargePoints(OcppProtocol protocol, List<RegistrationStatus> inStatusFilter,
+                                                    AbstractWebSocketEndpoint jsonEndpoint) {
+        List<String> statusFilter = inStatusFilter.stream()
+                                                  .map(RegistrationStatus::value)
+                                                  .collect(Collectors.toList());
+
+        List<ChargePointSelect> returnList = chargePointRepository.getChargePointSelect(protocol, statusFilter);
         for (String chargeBoxId : jsonEndpoint.getChargeBoxIdList()) {
             returnList.add(new ChargePointSelect(OcppTransport.JSON, chargeBoxId));
         }

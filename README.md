@@ -1,6 +1,6 @@
 ![SteVe](src/main/resources/webapp/static/images/logo.png) 
 
-[![Build Status](https://travis-ci.org/RWTH-i5-IDSG/steve.svg)](https://travis-ci.org/RWTH-i5-IDSG/steve)
+[![Build Status](https://travis-ci.org/RWTH-i5-IDSG/steve.svg?branch=master)](https://travis-ci.org/RWTH-i5-IDSG/steve)
 
 
 # Introduction
@@ -46,7 +46,7 @@ SteVe is designed to run standalone, a java servlet container / web server (e.g.
     CREATE DATABASE stevedb OWNER steve ENCODING 'utf-8';
     ```
     
-    **Important**: Make sure that the time zone of the MySQL server is the same as [the time zone of SteVe](src/main/java/de/rwth/idsg/steve/SteveConfiguration.java#L28). Since `UTC` is strongly recommended by OCPP, it is the default in SteVe and you should set it in MySQL, accordingly.
+    **Important**: Make sure that the time zone of the MySQL server is the same as [the time zone of SteVe](src/main/java/de/rwth/idsg/steve/SteveConfiguration.java#L46). Since `UTC` is strongly recommended by OCPP, it is the default in SteVe and you should set it in MySQL, accordingly.
 
 2. Download and extract tarball:
 
@@ -83,6 +83,20 @@ SteVe is designed to run standalone, a java servlet container / web server (e.g.
     # java -jar target/steve.jar
     ```
 
+# Docker
+
+If you prefer to build and start this project via docker (you can skip the steps 1 and 3, 4, 5 above), this can be done as follows: `docker-compose up -d `
+
+The web interface will be accessible at: `http://localhost:8180`
+
+# Ubuntu
+
+You'll find a tutorial how to prepare Ubuntu for SteVe here: https://github.com/RWTH-i5-IDSG/steve/wiki/Prepare-Ubuntu-VM-for-SteVe
+
+# AWS
+
+You'll find a tutorial how to setup SteVe in AWS using Lightsail here: https://github.com/RWTH-i5-IDSG/steve/wiki/Create-SteVe-Instance-in-AWS-Lightsail
+
 # First Steps
 
 After SteVe has successfully started, you can access the web interface using the configured credentials under:
@@ -116,7 +130,6 @@ Screenshots
 8. [Operations - OCPP v1.2](website/screenshots/ocpp12.png)
 9. [Operations - OCPP v1.5](website/screenshots/ocpp15.png)
 10. [Settings](website/screenshots/settings.png)
-
 
 GDPR
 -----

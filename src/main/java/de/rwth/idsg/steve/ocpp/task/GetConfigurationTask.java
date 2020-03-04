@@ -1,9 +1,28 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.ocpp.task;
 
 import com.google.common.base.Joiner;
 import de.rwth.idsg.steve.ocpp.Ocpp15AndAboveTask;
 import de.rwth.idsg.steve.ocpp.OcppCallback;
 import de.rwth.idsg.steve.ocpp.OcppVersion;
+import de.rwth.idsg.steve.ocpp.RequestResult;
 import de.rwth.idsg.steve.web.dto.ocpp.GetConfigurationParams;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -20,16 +39,7 @@ import java.util.stream.Collectors;
  */
 public class GetConfigurationTask extends Ocpp15AndAboveTask<GetConfigurationParams, GetConfigurationTask.ResponseWrapper> {
 
-    private static final String FORMAT =
-            "<b>Known keys:</b>"
-                    + "<br>"
-                    + "%s"
-                    + "<br>"
-                    + "<b>Unknown keys:</b>"
-                    + "<br>"
-                    + "%s";
-
-    private static final Joiner JOINER = Joiner.on(",");
+    private static final Joiner JOINER = Joiner.on(", ");
 
     public GetConfigurationTask(OcppVersion ocppVersion, GetConfigurationParams params) {
         super(ocppVersion, params);
@@ -40,13 +50,10 @@ public class GetConfigurationTask extends Ocpp15AndAboveTask<GetConfigurationPar
         return new DefaultOcppCallback<ResponseWrapper>() {
             @Override
             public void success(String chargeBoxId, ResponseWrapper response) {
-                String str = String.format(
-                        FORMAT,
-                        toStringConfList(response.getConfigurationKey()),
-                        toStringUnknownList(response.getUnknownKey())
-                );
+                addNewResponse(chargeBoxId, "OK");
 
-                addNewResponse(chargeBoxId, str);
+                RequestResult result = getResultMap().get(chargeBoxId);
+                result.setDetails(response);
             }
         };
     }
@@ -104,38 +111,20 @@ public class GetConfigurationTask extends Ocpp15AndAboveTask<GetConfigurationPar
         };
     }
 
-    private static String toStringConfList(List<KeyValue> confList) {
-        StringBuilder sb = new StringBuilder();
-
-        for (KeyValue keyValue : confList) {
-            sb.append(keyValue.getKey())
-              .append(": ")
-              .append(keyValue.getValue());
-
-            if (keyValue.isReadonly()) {
-                sb.append(" (read-only)");
-            }
-
-            sb.append("<br>");
-        }
-
-        return sb.toString();
-    }
-
-    private static String toStringUnknownList(List<String> unknownList) {
-        return JOINER.join(unknownList);
-    }
-
     @Getter
-    @RequiredArgsConstructor
     public static class ResponseWrapper {
-        private final List<KeyValue> configurationKey;
-        private final List<String> unknownKey;
+        private final List<KeyValue> configurationKeys;
+        private final String unknownKeys;
+
+        private ResponseWrapper(List<KeyValue> configurationKeys, List<String> unknownKeys) {
+            this.configurationKeys = configurationKeys;
+            this.unknownKeys = JOINER.join(unknownKeys);
+        }
     }
 
     @Getter
     @RequiredArgsConstructor
-    private static class KeyValue {
+    public static class KeyValue {
         private final String key;
         private final String value;
         private final boolean readonly;

@@ -1,3 +1,21 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.web.controller;
 
 import de.rwth.idsg.steve.repository.ChargePointRepository;
@@ -5,6 +23,7 @@ import de.rwth.idsg.steve.repository.OcppTagRepository;
 import de.rwth.idsg.steve.repository.ReservationRepository;
 import de.rwth.idsg.steve.repository.ReservationStatus;
 import de.rwth.idsg.steve.repository.TransactionRepository;
+import de.rwth.idsg.steve.service.TransactionStopService;
 import de.rwth.idsg.steve.web.dto.ReservationQueryForm;
 import de.rwth.idsg.steve.web.dto.TransactionQueryForm;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +53,7 @@ public class TransactionsReservationsController {
     @Autowired private ReservationRepository reservationRepository;
     @Autowired private ChargePointRepository chargePointRepository;
     @Autowired private OcppTagRepository ocppTagRepository;
+    @Autowired private TransactionStopService transactionStopService;
 
     private static final String PARAMS = "params";
 
@@ -42,6 +62,7 @@ public class TransactionsReservationsController {
     // -------------------------------------------------------------------------
 
     private static final String TRANSACTIONS_PATH = "/transactions";
+    private static final String TRANSACTION_STOP_PATH = "/transactions/stop/{transactionPk}";
     private static final String TRANSACTIONS_DETAILS_PATH = "/transactions/details/{transactionPk}";
     private static final String TRANSACTIONS_QUERY_PATH = "/transactions/query";
     private static final String RESERVATIONS_PATH = "/reservations";
@@ -59,6 +80,12 @@ public class TransactionsReservationsController {
         model.addAttribute("transList", transactionRepository.getTransactions(params));
         model.addAttribute(PARAMS, params);
         return "data-man/transactions";
+    }
+
+    @RequestMapping(value = TRANSACTION_STOP_PATH, method = RequestMethod.POST)
+    public String stopTransaction(@PathVariable("transactionPk") int transactionPk) {
+        transactionStopService.stop(transactionPk);
+        return "redirect:/manager/transactions";
     }
 
     @RequestMapping(value = TRANSACTIONS_DETAILS_PATH)

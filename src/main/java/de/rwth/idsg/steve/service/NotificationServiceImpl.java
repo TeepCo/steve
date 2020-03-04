@@ -1,17 +1,40 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.service;
 
 import com.google.common.base.Strings;
 import de.rwth.idsg.steve.NotificationFeature;
 import de.rwth.idsg.steve.repository.dto.MailSettings;
 import lombok.extern.slf4j.Slf4j;
+import ocpp.cs._2015._10.RegistrationStatus;
 import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 import static de.rwth.idsg.steve.NotificationFeature.OcppStationBooted;
 import static de.rwth.idsg.steve.NotificationFeature.OcppStationStatusFailure;
 import static de.rwth.idsg.steve.NotificationFeature.OcppStationWebSocketConnected;
 import static de.rwth.idsg.steve.NotificationFeature.OcppStationWebSocketDisconnected;
+import static de.rwth.idsg.steve.NotificationFeature.OcppTransactionStarted;
+import static de.rwth.idsg.steve.NotificationFeature.OcppTransactionEnded;
 import static java.lang.String.format;
 
 /**
@@ -25,13 +48,18 @@ public class NotificationServiceImpl implements NotificationService {
     @Autowired private MailService mailService;
 
     @Override
-    public void ocppStationBooted(String chargeBoxId, boolean isRegistered) {
+    public void ocppStationBooted(String chargeBoxId, Optional<RegistrationStatus> status) {
         if (isDisabled(OcppStationBooted)) {
             return;
         }
 
         String subject = format("Received boot notification from '%s'", chargeBoxId);
-        String body = isRegistered ? "" : format("Charging station '%s' is NOT registered.", chargeBoxId);
+        String body;
+        if (status.isPresent()) {
+            body = format("Charging station '%s' is in database and has registration status '%s'.", chargeBoxId, status.get().value());
+        } else {
+            body = format("Charging station '%s' is NOT in database", chargeBoxId);
+        }
 
         mailService.sendAsync(subject, addTimestamp(body));
     }
@@ -68,6 +96,28 @@ public class NotificationServiceImpl implements NotificationService {
         String body = format("Status Error Code: '%s'", errorCode);
 
         mailService.sendAsync(subject, addTimestamp(body));
+    }
+
+    @Override
+    public void ocppTransactionStarted(String chargeBoxId, int transactionId, int connectorId) {
+        if (isDisabled(OcppTransactionStarted)) {
+            return;
+        }
+
+        String subject = format("Transaction '%s' has started on charging station '%s' on connector '%s'", transactionId, chargeBoxId, connectorId);
+
+        mailService.sendAsync(subject, addTimestamp(""));
+    }
+
+    @Override
+    public void ocppTransactionEnded(String chargeBoxId, int transactionId) {
+       if (isDisabled(OcppTransactionEnded)) {
+            return;
+        }
+
+        String subject = format("Transaction '%s' has ended on charging station '%s'", transactionId, chargeBoxId);
+
+        mailService.sendAsync(subject, addTimestamp(""));
     }
 
     // -------------------------------------------------------------------------

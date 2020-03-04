@@ -3,18 +3,20 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.rwth.idsg</groupId>
     <artifactId>steve</artifactId>
-    <version>3.2.0</version>
+    <version>3.4.2</version>
     <packaging>jar</packaging>
 
     <organization>
-        <name>RWTH I5 IDSG</name>
+        <name>RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG)</name>
         <url>http://dbis.rwth-aachen.de/cms/teaching/IDSG</url>
     </organization>
+
+    <inceptionYear>2013</inceptionYear>
 
     <developers>
         <developer>
             <name>Sevket Goekay</name>
-            <email>goekay@dbis.rwth-aachen.de</email>
+            <email>sevketgokay@gmail.com</email>
             <url>https://github.com/goekay</url>
         </developer>
     </developers>
@@ -30,14 +32,15 @@
         <java.version>11</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <jooq.version>3.11.11</jooq.version>
-        <cxf.version>3.2.6</cxf.version>
-        <spring.version>5.0.8.RELEASE</spring.version>
-        <spring.security.version>5.0.7.RELEASE</spring.security.version>
+        <jooq.version>3.12.4</jooq.version>
+        <cxf.version>3.3.5</cxf.version>
+        <spring.version>5.2.3.RELEASE</spring.version>
+        <spring.security.version>5.2.2.RELEASE</spring.security.version>
+        <mysql.jdbc.version>8.0.19</mysql.jdbc.version>
         <postgresql.version>42.2.5</postgresql.version>
-        <jetty.version>9.4.11.v20180605</jetty.version>
-        <lombok.version>1.18.2</lombok.version>
-        <jackson.version>2.9.6</jackson.version>
+        <jetty.version>9.4.19.v20190610</jetty.version>
+        <lombok.version>1.18.12</lombok.version>
+        <jackson.version>2.10.2</jackson.version>
 
         <jdbcUrl>jdbc:postgresql://${db.ip}:${db.port}/${db.schema}</jdbcUrl>
     </properties>
@@ -50,6 +53,13 @@
             </activation>
             <properties>
                 <envName>prod</envName>
+                <skipTests>true</skipTests>
+            </properties>
+        </profile>
+        <profile>
+            <id>docker</id>
+            <properties>
+                <envName>docker</envName>
                 <skipTests>true</skipTests>
             </properties>
         </profile>
@@ -88,9 +98,45 @@
 
         <plugins>
             <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>3.0</version>
+                <configuration>
+                    <header>LICENSE-HEADER.txt</header>
+                    <properties>
+                        <owner>${project.organization.name}</owner>
+                        <year>${project.inceptionYear}</year>
+                        <currentYear>2019</currentYear>
+                    </properties>
+                    <excludes>
+                        <exclude>**/*.txt</exclude>
+                        <exclude>**/*.md</exclude>
+                        <exclude>**/*.xml</exclude>
+                        <exclude>**/*.properties</exclude>
+                        <exclude>**/*.sql</exclude>
+                        <exclude>**/*.html</exclude>
+                        <exclude>**/*.css</exclude>
+                        <exclude>**/*.js</exclude>
+                        <!-- <exclude>**/*.jsp</exclude> -->
+
+                    </excludes>
+                    <mapping>
+                        <java>SLASHSTAR_STYLE</java>
+                    </mapping>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.0.0-M2</version>
+                <version>3.0.0-M3</version>
                 <executions>
                     <execution>
                         <id>enforce-java</id>
@@ -109,7 +155,7 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.0</version>
+                <version>3.8.1</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
@@ -120,7 +166,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.10.0</version>
+                <version>3.13.0</version>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -141,7 +187,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>3.0.0</version>
+                <version>3.1.1</version>
                 <configuration>
                     <configLocation>${basedir}/src/main/resources/checkstyle.xml</configLocation>
                 </configuration>
@@ -150,7 +196,7 @@
             <plugin>
                 <groupId>pl.project13.maven</groupId>
                 <artifactId>git-commit-id-plugin</artifactId>
-                <version>2.2.4</version>
+                <version>4.0.0</version>
                 <executions>
                     <execution>
                         <phase>initialize</phase>
@@ -185,52 +231,37 @@
                 </executions>
             </plugin>
 
-            <!-- Help: http://stackoverflow.com/questions/6831954 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
+                <artifactId>maven-dependency-plugin</artifactId>
                 <version>3.1.1</version>
                 <executions>
                     <execution>
-                        <phase>package</phase>
+                        <id>copy-dependencies</id>
+                        <phase>prepare-package</phase>
                         <goals>
-                            <goal>shade</goal>
+                            <goal>copy-dependencies</goal>
                         </goals>
                         <configuration>
-                            <finalName>${project.artifactId}</finalName>
-                            <minimizeJar>false</minimizeJar>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>de.rwth.idsg.steve.Application</mainClass>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                                    <resource>META-INF/spring.handlers</resource>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                                    <resource>META-INF/spring.schemas</resource>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                                    <resource>META-INF/cxf/bus-extensions.txt</resource>
-                                </transformer>
-                            </transformers>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/maven/**</exclude>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                        <exclude>/*.txt</exclude>
-                                        <exclude>LICENSE</exclude>
-                                        <exclude>NOTICE</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
+                            <outputDirectory>${project.build.directory}/libs</outputDirectory>
+                            <includeScope>runtime</includeScope>
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>libs/</classpathPrefix>
+                            <mainClass>de.rwth.idsg.steve.Application</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
             </plugin>
 
             <!-- Pre-compiles JSPs -->
@@ -257,7 +288,7 @@
             <plugin>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-maven-plugin</artifactId>
-                <version>5.1.4</version>
+                <version>6.2.4</version>
 
                 <!-- Must be in the same phase as Jooq -->
                 <executions>
@@ -270,6 +301,8 @@
                 </executions>
 
                 <configuration>
+                    <!-- https://github.com/RWTH-i5-IDSG/steve/issues/157 -->
+<!--                    <initSql>SET default_storage_engine=InnoDB;</initSql>-->
                     <!-- we need this because of extensions. they have a higher version number
                          namespace reserved (e.g. 8.x.x). new migrations in core version should
                          be executed in the extended version as well -->
@@ -393,9 +426,8 @@
             <url>https://repo1.maven.org/maven2</url>
         </repository>
         <repository>
-            <id>TreibhausNexus</id>
-            <name>RWTH IDSG Nexus Repository</name>
-            <url>https://treibhaus.informatik.rwth-aachen.de/nexus/repository/maven-public/</url>
+            <id>JitPack</id>
+            <url>https://jitpack.io</url>
         </repository>
     </repositories>
 
@@ -411,7 +443,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-bom</artifactId>
-                <version>2.11.1</version>
+                <version>2.13.1</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -421,26 +453,26 @@
     <dependencies>
 
         <dependency>
-            <groupId>de.rwth.idsg</groupId>
+            <groupId>com.github.RWTH-i5-IDSG</groupId>
             <artifactId>ocpp-jaxb</artifactId>
             <version>0.0.1</version>
         </dependency>
         <dependency>
             <groupId>com.sun.mail</groupId>
             <artifactId>javax.mail</artifactId>
-            <version>1.6.1</version>
+            <version>1.6.2</version>
         </dependency>
 
         <!-- Annotations and javax stuff -->
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
-            <version>1.3.1</version>
+            <version>1.3.2</version>
         </dependency>
         <dependency>
             <groupId>javax.xml.ws</groupId>
             <artifactId>jaxws-api</artifactId>
-            <version>2.3.0</version>
+            <version>2.3.1</version>
         </dependency>
         <dependency>
             <groupId>javax.jws</groupId>
@@ -450,12 +482,12 @@
         <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
-            <version>2.3.0</version>
+            <version>2.3.2</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>16.0.2</version>
+            <version>19.0.0</version>
             <scope>compile</scope>
         </dependency>
 
@@ -468,17 +500,17 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-            <version>2.10</version>
+            <version>2.10.5</version>
         </dependency>
         <dependency>
             <groupId>org.hibernate.validator</groupId>
             <artifactId>hibernate-validator</artifactId>
-            <version>6.0.12.Final</version>
+            <version>6.1.2.Final</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>26.0-jre</version>
+            <version>28.2-jre</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -553,12 +585,12 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.7.25</version>
+            <version>1.7.30</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
-            <version>1.7.25</version>
+            <version>1.7.30</version>
         </dependency>
         <dependency>
             <groupId>com.lmax</groupId>
@@ -634,7 +666,7 @@
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
-            <version>3.2.0</version>
+            <version>3.4.2</version>
         </dependency>
         <dependency>
             <groupId>org.jooq</groupId>
@@ -651,7 +683,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.12</version>
+            <version>4.13</version>
             <scope>test</scope>
         </dependency>
 
@@ -667,7 +699,7 @@
         <dependency>
             <groupId>com.neovisionaries</groupId>
             <artifactId>nv-i18n</artifactId>
-            <version>1.23</version>
+            <version>1.27</version>
         </dependency>
 
     </dependencies>

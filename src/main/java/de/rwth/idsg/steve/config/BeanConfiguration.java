@@ -1,5 +1,34 @@
+/*
+ * SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+ * Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+ * All Rights Reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package de.rwth.idsg.steve.config;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.mysql.cj.conf.PropertyKey;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import de.rwth.idsg.steve.SteveConfiguration;
+import de.rwth.idsg.steve.service.DummyReleaseCheckService;
+import de.rwth.idsg.steve.service.GithubReleaseCheckService;
+import de.rwth.idsg.steve.service.ReleaseCheckService;
+import de.rwth.idsg.steve.utils.DateTimeUtils;
+import de.rwth.idsg.steve.utils.InternetChecker;
+import lombok.extern.slf4j.Slf4j;
 import static de.rwth.idsg.steve.SteveConfiguration.CONFIG;
 
 import java.util.concurrent.ExecutorService;
@@ -20,6 +49,8 @@ import org.jooq.impl.DefaultConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -56,6 +87,7 @@ public class BeanConfiguration implements WebMvcConfigurer {
     private ScheduledThreadPoolExecutor executor;
 
     /**
+     * https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration
      */
     private void initDataSource() {
         SteveConfiguration.DB dbConfig = CONFIG.getDb();
@@ -68,6 +100,13 @@ public class BeanConfiguration implements WebMvcConfigurer {
         hc.setPassword(dbConfig.getPassword());
 
         // set non-standard params
+        hc.addDataSourceProperty(PropertyKey.cachePrepStmts.getKeyName(), true);
+        hc.addDataSourceProperty(PropertyKey.useServerPrepStmts.getKeyName(), true);
+        hc.addDataSourceProperty(PropertyKey.prepStmtCacheSize.getKeyName(), 250);
+        hc.addDataSourceProperty(PropertyKey.prepStmtCacheSqlLimit.getKeyName(), 2048);
+        hc.addDataSourceProperty(PropertyKey.characterEncoding.getKeyName(), "utf8");
+        hc.addDataSourceProperty(PropertyKey.serverTimezone.getKeyName(), CONFIG.getTimeZoneId());
+        hc.addDataSourceProperty(PropertyKey.useSSL.getKeyName(), true);
 
         dataSource = new HikariDataSource(hc);
     }
@@ -133,6 +172,11 @@ public class BeanConfiguration implements WebMvcConfigurer {
         } else {
             return new DummyReleaseCheckService();
         }
+    }
+
+    @EventListener
+    public void afterStart(ContextRefreshedEvent event) {
+        DateTimeUtils.checkJavaAndMySQLOffsets(dslContext());
     }
 
     @PreDestroy

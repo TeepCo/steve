@@ -1,3 +1,23 @@
+<%--
+
+    SteVe - SteckdosenVerwaltung - https://github.com/RWTH-i5-IDSG/steve
+    Copyright (C) 2013-2019 RWTH Aachen University - Information Systems - Intelligent Distributed Systems Group (IDSG).
+    All Rights Reserved.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+--%>
 <%@ include file="../00-header.jsp" %>
 <%@ include file="../00-op-bind-errors.jsp" %>
 <script type="text/javascript">
@@ -73,7 +93,7 @@ Transactions
     </form:form>
     <br>
 
-    <table class="res">
+    <table class="res action">
         <thead>
             <tr>
                 <th data-sort="int">Transaction ID</th>
@@ -85,6 +105,7 @@ Transactions
                 <th data-sort="date">Stop Date/Time</th>
                 <th data-sort="int">Stop Value</th>
                 <th data-sort="string">Stop Reason</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -99,6 +120,13 @@ Transactions
                 <td data-sort-value="${ta.stopTimestampDT.millis}">${ta.stopTimestamp}</td>
                 <td>${ta.stopValue}</td>
                 <td>${ta.stopReason}</td>
+                <td>
+                    <c:if test="${empty ta.stopValue}">
+                        <form:form action="${ctxPath}/manager/transactions/stop/${ta.id}">
+                            <input type="submit" class="redSubmit" title="Manually stop this active transaction" value="Stop">
+                        </form:form>
+                    </c:if>
+                </td>
             </tr>
         </c:forEach>
         </tbody>

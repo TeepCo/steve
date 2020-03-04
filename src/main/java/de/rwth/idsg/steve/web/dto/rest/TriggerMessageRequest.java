@@ -11,6 +11,4 @@ public class TriggerMessageRequest {
 
     @NotNull(message = "Trigger message is required")
     private TriggerMessageEnum triggerMessage;
-
-    private Integer connectorId;
 }

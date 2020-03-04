@@ -5,13 +5,8 @@ import de.rwth.idsg.steve.ocpp.OcppTransport;
 import de.rwth.idsg.steve.repository.TaskStore;
 import de.rwth.idsg.steve.repository.dto.ChargePointSelect;
 import de.rwth.idsg.steve.service.ChargePointService16_Client;
-import de.rwth.idsg.steve.web.dto.ocpp.ChangeAvailabilityParams;
-import de.rwth.idsg.steve.web.dto.ocpp.MultipleChargePointSelect;
-import de.rwth.idsg.steve.web.dto.ocpp.TriggerMessageParams;
-import de.rwth.idsg.steve.web.dto.rest.ChangeAvailabilityRequest;
-import de.rwth.idsg.steve.web.dto.rest.CreateTaskRequest;
-import de.rwth.idsg.steve.web.dto.rest.TaskDetail;
-import de.rwth.idsg.steve.web.dto.rest.TriggerMessageRequest;
+import de.rwth.idsg.steve.web.dto.ocpp.*;
+import de.rwth.idsg.steve.web.dto.rest.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -24,8 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import static de.rwth.idsg.steve.web.dto.rest.CreateTaskRequest.TaskType.CHANGE_AVAILABILITY;
-import static de.rwth.idsg.steve.web.dto.rest.CreateTaskRequest.TaskType.TRIGGER_MESSAGE;
+import static de.rwth.idsg.steve.web.dto.rest.CreateTaskRequest.TaskType.*;
 
 
 @RestController
@@ -42,6 +36,8 @@ public class TaskRestController {
     {
         taskProcessors.put(CHANGE_AVAILABILITY, this::changeAvailability);
         taskProcessors.put(TRIGGER_MESSAGE, this::triggerMessage);
+        taskProcessors.put(REMOTE_START_TRANSACTION, this::remoteStartTransaction);
+        taskProcessors.put(REMOTE_STOP_TRANSACTION, this::remoteStopTransaction);
     }
 
     @PostMapping
@@ -75,6 +71,11 @@ public class TaskRestController {
                 new ChargePointSelect(OcppTransport.JSON, request.getChargeBoxId())));
     }
 
+    private void fillChargePoint(CreateTaskRequest request, SingleChargePointSelect params) {
+        params.setChargePointSelectList(Collections.singletonList(
+                new ChargePointSelect(OcppTransport.JSON, request.getChargeBoxId())));
+    }
+
     private Integer changeAvailability(CreateTaskRequest request) {
         final ChangeAvailabilityRequest changeAvailability = request.getChangeAvailability();
         final ChangeAvailabilityParams params = new ChangeAvailabilityParams();
@@ -99,5 +100,30 @@ public class TaskRestController {
         fillChargePoint(request, params);
 
         return client16.triggerMessage(params);
+    }
+
+    private Integer remoteStartTransaction(CreateTaskRequest request) {
+        final RemoteStartTransactionRequest remoteStartTransaction = request.getRemoteStartTransaction();
+        final RemoteStartTransactionParams params = new RemoteStartTransactionParams();
+
+        Assert.notNull(remoteStartTransaction, "Required parameter remoteStartTransaction missing.");
+
+        params.setConnectorId(request.getConnectorId());
+        params.setIdTag(remoteStartTransaction.getTagId());
+        fillChargePoint(request, params);
+
+        return client16.remoteStartTransaction(params);
+    }
+
+    private Integer remoteStopTransaction(CreateTaskRequest request) {
+        final RemoteStopTransactionRequest remoteStopTransaction = request.getRemoteStopTransaction();
+        final RemoteStopTransactionParams params = new RemoteStopTransactionParams();
+
+        Assert.notNull(remoteStopTransaction, "Required parameter remoteStopTransaction missing.");
+
+        params.setTransactionId(remoteStopTransaction.getTransactionId());
+        fillChargePoint(request, params);
+
+        return client16.remoteStopTransaction(params);
     }
 }

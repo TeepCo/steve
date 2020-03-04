@@ -21,8 +21,14 @@ public class CreateTaskRequest {
 
     private TriggerMessageRequest triggerMessage;
 
+    private RemoteStartTransactionRequest remoteStartTransaction;
+
+    private RemoteStopTransactionRequest remoteStopTransaction;
+
     public enum TaskType {
         CHANGE_AVAILABILITY,
-        TRIGGER_MESSAGE
+        TRIGGER_MESSAGE,
+        REMOTE_START_TRANSACTION,
+        REMOTE_STOP_TRANSACTION,
     }
 }

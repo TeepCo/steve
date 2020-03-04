@@ -46,8 +46,6 @@ SteVe is designed to run standalone, a java servlet container / web server (e.g.
     CREATE DATABASE stevedb OWNER steve ENCODING 'utf-8';
     ```
     
-    **Important**: Make sure that the time zone of the MySQL server is the same as [the time zone of SteVe](src/main/java/de/rwth/idsg/steve/SteveConfiguration.java#L46). Since `UTC` is strongly recommended by OCPP, it is the default in SteVe and you should set it in MySQL, accordingly.
-
 2. Download and extract tarball:
 
     You can download and extract the SteVe releases using the following commands (replace X.X.X with the desired version number):

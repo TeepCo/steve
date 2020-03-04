@@ -19,27 +19,14 @@
 package de.rwth.idsg.steve.config;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.mysql.cj.conf.PropertyKey;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import de.rwth.idsg.steve.SteveConfiguration;
 import de.rwth.idsg.steve.service.DummyReleaseCheckService;
 import de.rwth.idsg.steve.service.GithubReleaseCheckService;
 import de.rwth.idsg.steve.service.ReleaseCheckService;
-import de.rwth.idsg.steve.utils.DateTimeUtils;
 import de.rwth.idsg.steve.utils.InternetChecker;
 import lombok.extern.slf4j.Slf4j;
-import static de.rwth.idsg.steve.SteveConfiguration.CONFIG;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
-import javax.annotation.PreDestroy;
-import javax.validation.Validator;
-
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.conf.Settings;
@@ -60,15 +47,11 @@ import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-import de.rwth.idsg.steve.SteveConfiguration;
-import de.rwth.idsg.steve.service.DummyReleaseCheckService;
-import de.rwth.idsg.steve.service.GithubReleaseCheckService;
-import de.rwth.idsg.steve.service.ReleaseCheckService;
-import de.rwth.idsg.steve.utils.InternetChecker;
-import lombok.extern.slf4j.Slf4j;
+import javax.annotation.PreDestroy;
+import javax.validation.Validator;
+import java.util.concurrent.*;
+
+import static de.rwth.idsg.steve.SteveConfiguration.CONFIG;
 
 /**
  * Configuration and beans of Spring Framework.
@@ -98,15 +81,6 @@ public class BeanConfiguration implements WebMvcConfigurer {
         hc.setJdbcUrl("jdbc:postgresql://" + dbConfig.getIp() + ":" + dbConfig.getPort() + "/" + dbConfig.getSchema());
         hc.setUsername(dbConfig.getUserName());
         hc.setPassword(dbConfig.getPassword());
-
-        // set non-standard params
-        hc.addDataSourceProperty(PropertyKey.cachePrepStmts.getKeyName(), true);
-        hc.addDataSourceProperty(PropertyKey.useServerPrepStmts.getKeyName(), true);
-        hc.addDataSourceProperty(PropertyKey.prepStmtCacheSize.getKeyName(), 250);
-        hc.addDataSourceProperty(PropertyKey.prepStmtCacheSqlLimit.getKeyName(), 2048);
-        hc.addDataSourceProperty(PropertyKey.characterEncoding.getKeyName(), "utf8");
-        hc.addDataSourceProperty(PropertyKey.serverTimezone.getKeyName(), CONFIG.getTimeZoneId());
-        hc.addDataSourceProperty(PropertyKey.useSSL.getKeyName(), true);
 
         dataSource = new HikariDataSource(hc);
     }
@@ -138,7 +112,7 @@ public class BeanConfiguration implements WebMvcConfigurer {
 
         // Configuration for JOOQ
         org.jooq.Configuration conf = new DefaultConfiguration()
-                .set(SQLDialect.POSTGRES_10)
+                .set(SQLDialect.POSTGRES)
                 .set(new DataSourceConnectionProvider(dataSource))
                 .set(settings);
 
@@ -176,7 +150,7 @@ public class BeanConfiguration implements WebMvcConfigurer {
 
     @EventListener
     public void afterStart(ContextRefreshedEvent event) {
-        DateTimeUtils.checkJavaAndMySQLOffsets(dslContext());
+//        DateTimeUtils.checkJavaAndMySQLOffsets(dslContext());
     }
 
     @PreDestroy

@@ -15,6 +15,8 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 SET row_security = off;
 
+CREATE SCHEMA IF NOT EXISTS stevedb;
+
 --
 -- Name: stevedb; Type: SCHEMA; Schema: -; Owner: steve
 --
@@ -335,7 +337,7 @@ ALTER TABLE stevedb.reservation_reservation_pk_seq OWNER TO steve;
 ALTER SEQUENCE stevedb.reservation_reservation_pk_seq OWNED BY stevedb.reservation.reservation_pk;
 
 
-ALTER TABLE stevedb.schema_version OWNER TO steve;
+-- ALTER TABLE stevedb.schema_version OWNER TO steve;
 
 --
 -- Name: settings; Type: TABLE; Schema: stevedb; Owner: steve
